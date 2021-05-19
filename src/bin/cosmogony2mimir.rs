@@ -73,7 +73,18 @@ impl IntoAdmin for Zone {
         all_admins: Option<&HashMap<String, Arc<Admin>>>,
     ) -> Admin {
         let insee = admin::read_insee(&self.tags).map(|s| s.to_owned());
-        let zip_codes = admin::read_zip_codes(&self.tags);
+        // We copy the zip codes DIRECTLY as calculated by Cosmogony; we do not use
+        // admin::read_zip_codes(&self.tags) (such as before)
+        let mut zip_codes: Vec<String> = Vec::new();
+
+        if self.zip_codes.len() < 300 {
+            zip_codes = self.zip_codes.clone();
+            zip_codes.sort();
+        } else {
+            // the very long zip codes make errors in Elasticsearch
+            info!("Skipping {} EXTRA LONG ZipCodes for {:?}: {:?}", self.zip_codes.len(), self.label, self.zip_codes);
+        }
+
         let label = self.label;
         let weight = get_weight(&self.tags, &self.center_tags);
         let center = self.center.map_or(mimir::Coord::default(), |c| {
